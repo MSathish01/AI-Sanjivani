@@ -1,0 +1,85 @@
+name: ai_sanjivani
+description: AI-powered healthcare assistant for rural India
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # UI Components
+  cupertino_icons: ^1.0.6
+  flutter_svg: ^2.0.7
+  google_fonts: ^6.1.0
+  
+  # State Management
+  provider: ^6.0.5
+  
+  # Local Storage
+  shared_preferences: ^2.2.2
+  sqflite: ^2.3.0
+  path: ^1.8.3
+  
+  # Speech Recognition
+  speech_to_text: ^6.3.0
+  permission_handler: ^11.0.1
+  
+  # Audio Processing
+  record: ^5.0.4
+  audioplayers: ^5.2.1
+  
+  # ML/AI
+  tflite_flutter: ^0.10.4
+  
+  # Networking (for sync when available)
+  http: ^1.1.0
+  connectivity_plus: ^5.0.1
+  
+  # Localization
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.18.1
+  
+  # Icons and UI
+  flutter_launcher_icons: ^0.13.1
+  
+  # File handling
+  path_provider: ^2.1.1
+  
+  # Accessibility
+  flutter_tts: ^3.8.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/models/
+    - assets/audio/
+    - assets/translations/
+  
+  fonts:
+    - family: NotoSansDevanagari
+      fonts:
+        - asset: assets/fonts/NotoSansDevanagari-Regular.ttf
+        - asset: assets/fonts/NotoSansDevanagari-Bold.ttf
+          weight: 700
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icons/app_icon.png"
+  adaptive_icon_background: "#4CAF50"
+  adaptive_icon_foreground: "assets/icons/app_icon_foreground.png"
