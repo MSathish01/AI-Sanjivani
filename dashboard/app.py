@@ -193,7 +193,7 @@ class PHCDashboard:
         assessments = []
         for i in range(500):
             village = np.random.choice([v[0] for v in villages])
-            symptoms = np.random.choice(symptoms_combinations)
+            symptoms = symptoms_combinations[np.random.randint(0, len(symptoms_combinations))]
             age = np.random.randint(18, 80)
             gender = np.random.choice(genders)
             

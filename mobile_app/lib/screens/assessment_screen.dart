@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/health_assessment_provider.dart';
-import '../providers/speech_provider.dart';
-import '../widgets/symptom_selector.dart';
-import '../widgets/voice_input_button.dart';
-import '../widgets/demographic_form.dart';
-import '../widgets/progress_indicator.dart';
+import 'package:speech_to_text/speech_to_text.dart';
+import 'package:permission_handler/permission_handler.dart';
+
+import '../providers/health_provider.dart';
 import '../utils/app_localizations.dart';
-import '../utils/colors.dart';
+import '../widgets/symptom_selector.dart';
+import '../widgets/voice_input_widget.dart';
+import '../widgets/assessment_progress.dart';
 
 class AssessmentScreen extends StatefulWidget {
   const AssessmentScreen({super.key});
@@ -19,7 +19,32 @@ class AssessmentScreen extends StatefulWidget {
 class _AssessmentScreenState extends State<AssessmentScreen> {
   final PageController _pageController = PageController();
   int _currentStep = 0;
-  final int _totalSteps = 3;
+  final int _totalSteps = 4;
+
+  // Form data
+  int? _age;
+  String? _gender;
+  List<String> _selectedSymptoms = [];
+  bool _isVoiceMode = false;
+
+  // Voice recognition
+  final SpeechToText _speechToText = SpeechToText();
+  bool _speechEnabled = false;
+  bool _speechListening = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initSpeech();
+  }
+
+  void _initSpeech() async {
+    final status = await Permission.microphone.request();
+    if (status == PermissionStatus.granted) {
+      _speechEnabled = await _speechToText.initialize();
+      setState(() {});
+    }
+  }
 
   @override
   void dispose() {
@@ -32,35 +57,19 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
     final localizations = AppLocalizations.of(context);
     
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        title: Text(localizations.healthAssessment),
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(
-          localizations.translate('health_assessment'),
-          style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        centerTitle: true,
       ),
       body: Column(
         children: [
           // Progress indicator
-          Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: CustomProgressIndicator(
-              currentStep: _currentStep,
-              totalSteps: _totalSteps,
-            ),
+          AssessmentProgress(
+            currentStep: _currentStep,
+            totalSteps: _totalSteps,
           ),
           
-          // Page content
+          // Main content
           Expanded(
             child: PageView(
               controller: _pageController,
@@ -70,8 +79,9 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
                 });
               },
               children: [
-                _buildDemographicStep(localizations),
-                _buildSymptomStep(localizations),
+                _buildWelcomeStep(localizations),
+                _buildBasicInfoStep(localizations),
+                _buildSymptomsStep(localizations),
                 _buildConfirmationStep(localizations),
               ],
             ),
@@ -84,29 +94,90 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
     );
   }
 
-  Widget _buildDemographicStep(AppLocalizations localizations) {
+  Widget _buildWelcomeStep(AppLocalizations localizations) {
     return Padding(
-      padding: const EdgeInsets.all(20.0),
+      padding: const EdgeInsets.all(24.0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _buildStepHeader(
-            localizations.translate('basic_information'),
-            localizations.translate('basic_info_subtitle'),
-            Icons.person,
+          Icon(
+            Icons.health_and_safety,
+            size: 100,
+            color: Theme.of(context).primaryColor,
           ),
           
-          const SizedBox(height: 30),
+          const SizedBox(height: 32),
           
-          Expanded(
-            child: Consumer<HealthAssessmentProvider>(
-              builder: (context, provider, child) {
-                return DemographicForm(
-                  onDataChanged: (data) {
-                    provider.updateDemographicData(data);
-                  },
-                );
-              },
+          Text(
+            localizations.assessmentWelcome,
+            style: Theme.of(context).textTheme.headlineMedium,
+            textAlign: TextAlign.center,
+          ),
+          
+          const SizedBox(height: 16),
+          
+          Text(
+            localizations.assessmentInstructions,
+            style: Theme.of(context).textTheme.bodyLarge,
+            textAlign: TextAlign.center,
+          ),
+          
+          const SizedBox(height: 32),
+          
+          // Input mode selection
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  Text(
+                    localizations.selectInputMode,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildModeButton(
+                          localizations.textInput,
+                          Icons.keyboard,
+                          !_isVoiceMode,
+                          () => setState(() => _isVoiceMode = false),
+                        ),
+                      ),
+                      
+                      const SizedBox(width: 16),
+                      
+                      Expanded(
+                        child: _buildModeButton(
+                          localizations.voiceInput,
+                          Icons.mic,
+                          _isVoiceMode,
+                          _speechEnabled 
+                            ? () => setState(() => _isVoiceMode = true)
+                            : null,
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  if (!_speechEnabled)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text(
+                        localizations.voiceNotAvailable,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.orange,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ],
@@ -114,45 +185,231 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
     );
   }
 
-  Widget _buildSymptomStep(AppLocalizations localizations) {
+  Widget _buildModeButton(
+    String label,
+    IconData icon,
+    bool isSelected,
+    VoidCallback? onTap,
+  ) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected 
+            ? Theme.of(context).primaryColor.withOpacity(0.1)
+            : Colors.grey.shade100,
+          border: Border.all(
+            color: isSelected 
+              ? Theme.of(context).primaryColor
+              : Colors.grey.shade300,
+            width: 2,
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              size: 32,
+              color: isSelected 
+                ? Theme.of(context).primaryColor
+                : (onTap != null ? Colors.grey.shade600 : Colors.grey.shade400),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: isSelected 
+                  ? Theme.of(context).primaryColor
+                  : (onTap != null ? Colors.grey.shade700 : Colors.grey.shade400),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBasicInfoStep(AppLocalizations localizations) {
     return Padding(
-      padding: const EdgeInsets.all(20.0),
+      padding: const EdgeInsets.all(24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildStepHeader(
-            localizations.translate('symptoms'),
-            localizations.translate('symptoms_subtitle'),
-            Icons.medical_services,
+          Text(
+            localizations.basicInformation,
+            style: Theme.of(context).textTheme.headlineMedium,
           ),
           
-          const SizedBox(height: 20),
+          const SizedBox(height: 32),
           
-          // Voice input section
-          Consumer<SpeechProvider>(
-            builder: (context, speechProvider, child) {
-              return VoiceInputButton(
-                isListening: speechProvider.isListening,
-                onPressed: () => _handleVoiceInput(speechProvider),
-                recognizedText: speechProvider.recognizedText,
-              );
-            },
-          ),
-          
-          const SizedBox(height: 30),
-          
-          // Symptom selector
-          Expanded(
-            child: Consumer<HealthAssessmentProvider>(
-              builder: (context, provider, child) {
-                return SymptomSelector(
-                  selectedSymptoms: provider.selectedSymptoms,
-                  onSymptomsChanged: (symptoms) {
-                    provider.updateSymptoms(symptoms);
-                  },
-                );
-              },
+          // Age input
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    localizations.age,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  
+                  TextFormField(
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      hintText: localizations.enterAge,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      prefixIcon: const Icon(Icons.cake),
+                    ),
+                    onChanged: (value) {
+                      _age = int.tryParse(value);
+                    },
+                  ),
+                ],
+              ),
             ),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Gender selection
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    localizations.gender,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildGenderButton(
+                          localizations.male,
+                          'M',
+                          Icons.male,
+                        ),
+                      ),
+                      
+                      const SizedBox(width: 16),
+                      
+                      Expanded(
+                        child: _buildGenderButton(
+                          localizations.female,
+                          'F',
+                          Icons.female,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGenderButton(String label, String value, IconData icon) {
+    final isSelected = _gender == value;
+    
+    return GestureDetector(
+      onTap: () => setState(() => _gender = value),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected 
+            ? Theme.of(context).primaryColor.withOpacity(0.1)
+            : Colors.grey.shade100,
+          border: Border.all(
+            color: isSelected 
+              ? Theme.of(context).primaryColor
+              : Colors.grey.shade300,
+            width: 2,
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              color: isSelected 
+                ? Theme.of(context).primaryColor
+                : Colors.grey.shade600,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: isSelected 
+                  ? Theme.of(context).primaryColor
+                  : Colors.grey.shade700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSymptomsStep(AppLocalizations localizations) {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            localizations.symptoms,
+            style: Theme.of(context).textTheme.headlineMedium,
+          ),
+          
+          const SizedBox(height: 16),
+          
+          Text(
+            _isVoiceMode 
+              ? localizations.voiceInstructions
+              : localizations.symptomInstructions,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          
+          const SizedBox(height: 24),
+          
+          Expanded(
+            child: _isVoiceMode 
+              ? VoiceInputWidget(
+                  onSymptomsDetected: (symptoms) {
+                    setState(() {
+                      _selectedSymptoms = symptoms;
+                    });
+                  },
+                )
+              : SymptomSelector(
+                  selectedSymptoms: _selectedSymptoms,
+                  onSymptomsChanged: (symptoms) {
+                    setState(() {
+                      _selectedSymptoms = symptoms;
+                    });
+                  },
+                ),
           ),
         ],
       ),
@@ -161,23 +418,66 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
 
   Widget _buildConfirmationStep(AppLocalizations localizations) {
     return Padding(
-      padding: const EdgeInsets.all(20.0),
+      padding: const EdgeInsets.all(24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildStepHeader(
-            localizations.translate('review_information'),
-            localizations.translate('review_subtitle'),
-            Icons.check_circle,
+          Text(
+            localizations.confirmDetails,
+            style: Theme.of(context).textTheme.headlineMedium,
           ),
           
-          const SizedBox(height: 30),
+          const SizedBox(height: 24),
           
-          Expanded(
-            child: Consumer<HealthAssessmentProvider>(
-              builder: (context, provider, child) {
-                return _buildReviewContent(localizations, provider);
-              },
+          // Summary cards
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSummaryRow(
+                    localizations.age,
+                    _age?.toString() ?? localizations.notProvided,
+                    Icons.cake,
+                  ),
+                  
+                  const Divider(),
+                  
+                  _buildSummaryRow(
+                    localizations.gender,
+                    _gender == 'M' 
+                      ? localizations.male 
+                      : _gender == 'F' 
+                        ? localizations.female 
+                        : localizations.notProvided,
+                    _gender == 'M' ? Icons.male : Icons.female,
+                  ),
+                  
+                  const Divider(),
+                  
+                  _buildSummaryRow(
+                    localizations.symptoms,
+                    _selectedSymptoms.isNotEmpty 
+                      ? _selectedSymptoms.join(', ')
+                      : localizations.noSymptomsSelected,
+                    Icons.medical_services,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 24),
+          
+          // Assessment button
+          SizedBox(
+            width: double.infinity,
+            height: 60,
+            child: ElevatedButton.icon(
+              onPressed: _canProceedToAssessment() ? _performAssessment : null,
+              icon: const Icon(Icons.psychology),
+              label: Text(localizations.analyzeSymptoms),
             ),
           ),
         ],
@@ -185,168 +485,25 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
     );
   }
 
-  Widget _buildStepHeader(String title, String subtitle, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-      ),
+  Widget _buildSummaryRow(String label, String value, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              icon,
-              color: Colors.white,
-              size: 24,
+          Icon(icon, color: Theme.of(context).primaryColor),
+          const SizedBox(width: 12),
+          Text(
+            '$label: ',
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(width: 16),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
+            child: Text(
+              value,
+              style: Theme.of(context).textTheme.bodyLarge,
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildReviewContent(AppLocalizations localizations, HealthAssessmentProvider provider) {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Demographic information
-          _buildReviewSection(
-            localizations.translate('basic_information'),
-            [
-              '${localizations.translate('age')}: ${provider.demographicData['age'] ?? 'Not specified'}',
-              '${localizations.translate('gender')}: ${provider.demographicData['gender'] ?? 'Not specified'}',
-              if (provider.demographicData['isPregnant'] == true)
-                localizations.translate('pregnant'),
-              if (provider.demographicData['hasDiabetes'] == true)
-                localizations.translate('has_diabetes'),
-              if (provider.demographicData['hasHypertension'] == true)
-                localizations.translate('has_hypertension'),
-            ],
-            Icons.person,
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // Symptoms
-          _buildReviewSection(
-            localizations.translate('symptoms'),
-            provider.selectedSymptoms.isNotEmpty
-                ? provider.selectedSymptoms
-                : [localizations.translate('no_symptoms_selected')],
-            Icons.medical_services,
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // Disclaimer
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.warning.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.warning.withOpacity(0.3)),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  Icons.info,
-                  color: AppColors.warning,
-                  size: 20,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    localizations.translate('assessment_disclaimer'),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildReviewSection(String title, List<String> items, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: AppColors.primary, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ...items.map((item) => Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('• ', style: TextStyle(color: AppColors.textSecondary)),
-                Expanded(
-                  child: Text(
-                    item,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          )).toList(),
         ],
       ),
     );
@@ -354,81 +511,27 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
 
   Widget _buildNavigationButtons(AppLocalizations localizations) {
     return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        border: Border(
-          top: BorderSide(color: AppColors.border, width: 1),
-        ),
-      ),
+      padding: const EdgeInsets.all(16.0),
       child: Row(
         children: [
-          // Back button
           if (_currentStep > 0)
             Expanded(
               child: OutlinedButton(
-                onPressed: _goToPreviousStep,
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  side: const BorderSide(color: AppColors.primary),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: Text(
-                  localizations.translate('back'),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
-                  ),
-                ),
+                onPressed: _previousStep,
+                child: Text(localizations.previous),
               ),
             ),
           
           if (_currentStep > 0) const SizedBox(width: 16),
           
-          // Next/Submit button
           Expanded(
-            flex: _currentStep == 0 ? 1 : 1,
-            child: Consumer<HealthAssessmentProvider>(
-              builder: (context, provider, child) {
-                final isLastStep = _currentStep == _totalSteps - 1;
-                final canProceed = _canProceedToNextStep(provider);
-                
-                return ElevatedButton(
-                  onPressed: canProceed
-                      ? (isLastStep ? _submitAssessment : _goToNextStep)
-                      : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: provider.isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : Text(
-                          isLastStep
-                              ? localizations.translate('get_assessment')
-                              : localizations.translate('next'),
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                );
-              },
+            child: ElevatedButton(
+              onPressed: _canProceedToNext() ? _nextStep : null,
+              child: Text(
+                _currentStep == _totalSteps - 1 
+                  ? localizations.analyze
+                  : localizations.next,
+              ),
             ),
           ),
         ],
@@ -436,30 +539,39 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
     );
   }
 
-  bool _canProceedToNextStep(HealthAssessmentProvider provider) {
+  bool _canProceedToNext() {
     switch (_currentStep) {
       case 0:
-        return provider.demographicData['age'] != null &&
-               provider.demographicData['gender'] != null;
+        return true; // Welcome step
       case 1:
-        return provider.selectedSymptoms.isNotEmpty;
+        return _age != null && _gender != null;
       case 2:
-        return true;
+        return _selectedSymptoms.isNotEmpty;
+      case 3:
+        return _canProceedToAssessment();
       default:
         return false;
     }
   }
 
-  void _goToNextStep() {
+  bool _canProceedToAssessment() {
+    return _age != null && 
+           _gender != null && 
+           _selectedSymptoms.isNotEmpty;
+  }
+
+  void _nextStep() {
     if (_currentStep < _totalSteps - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
       );
+    } else {
+      _performAssessment();
     }
   }
 
-  void _goToPreviousStep() {
+  void _previousStep() {
     if (_currentStep > 0) {
       _pageController.previousPage(
         duration: const Duration(milliseconds: 300),
@@ -468,41 +580,38 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
     }
   }
 
-  void _handleVoiceInput(SpeechProvider speechProvider) async {
-    if (speechProvider.isListening) {
-      await speechProvider.stopListening();
-    } else {
-      await speechProvider.startListening();
-      
-      // Process recognized symptoms
-      if (speechProvider.recognizedText.isNotEmpty) {
-        final healthProvider = Provider.of<HealthAssessmentProvider>(context, listen: false);
-        final extractedSymptoms = await speechProvider.extractSymptomsFromText(
-          speechProvider.recognizedText,
-        );
-        
-        if (extractedSymptoms.isNotEmpty) {
-          healthProvider.addSymptomsFromVoice(extractedSymptoms);
-        }
-      }
-    }
-  }
-
-  void _submitAssessment() async {
-    final provider = Provider.of<HealthAssessmentProvider>(context, listen: false);
+  void _performAssessment() async {
+    final healthProvider = Provider.of<HealthProvider>(context, listen: false);
+    
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
     
     try {
-      await provider.performAssessment();
+      // Perform assessment
+      await healthProvider.performAssessment(
+        age: _age!,
+        gender: _gender!,
+        symptoms: _selectedSymptoms,
+      );
       
+      // Navigate to results
       if (mounted) {
-        Navigator.pushReplacementNamed(context, '/result');
+        Navigator.of(context).pop(); // Close loading dialog
+        Navigator.pushReplacementNamed(context, '/results');
       }
     } catch (e) {
       if (mounted) {
+        Navigator.of(context).pop(); // Close loading dialog
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Assessment failed: ${e.toString()}'),
-            backgroundColor: AppColors.error,
+            content: Text('Assessment failed: $e'),
+            backgroundColor: Colors.red,
           ),
         );
       }

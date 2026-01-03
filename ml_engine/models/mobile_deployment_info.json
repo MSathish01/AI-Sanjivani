@@ -1,0 +1,62 @@
+{
+  "feature_names": [
+    "fever",
+    "cough",
+    "breathlessness",
+    "chest_pain",
+    "fatigue",
+    "nausea",
+    "vomiting",
+    "diarrhea",
+    "abdominal_pain",
+    "headache",
+    "body_ache",
+    "dizziness",
+    "chills",
+    "rash",
+    "weight_loss",
+    "night_sweats",
+    "frequent_urination",
+    "excessive_thirst",
+    "blurred_vision",
+    "heart_rate",
+    "spo2",
+    "temperature_f",
+    "bp_systolic",
+    "bp_diastolic",
+    "age",
+    "is_pregnant",
+    "has_diabetes",
+    "has_hypertension",
+    "gender_encoded"
+  ],
+  "target_names": {
+    "risk": [
+      "Green",
+      "Red",
+      "Yellow"
+    ],
+    "disease": [
+      "cardiovascular",
+      "dengue",
+      "diabetes_related",
+      "gastrointestinal",
+      "hypertension",
+      "infectious",
+      "malaria",
+      "maternal",
+      "respiratory",
+      "tuberculosis"
+    ]
+  },
+  "model_files": {
+    "risk_rf": "rf_risk.joblib",
+    "risk_lgb": "lgb_risk.txt",
+    "disease_rf": "rf_disease.joblib",
+    "disease_lgb": "lgb_disease.txt"
+  },
+  "preprocessing": {
+    "scaling_required": true,
+    "encoding_required": true
+  }
+}

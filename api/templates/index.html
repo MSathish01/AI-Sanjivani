@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-Sanjivani | Healthcare Assistant</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root { --primary: #2E7D32; --danger: #dc3545; --warning: #ffc107; --success: #28a745; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); min-height: 100vh; }
+        .navbar { background: var(--primary) !important; }
+        .hero { padding: 60px 0; text-align: center; }
+        .hero h1 { color: var(--primary); font-size: 2.5rem; font-weight: 700; }
+        .card { border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); border: none; }
+        .btn-primary { background: var(--primary); border-color: var(--primary); }
+        .btn-primary:hover { background: #1B5E20; }
+        .symptom-btn { margin: 4px; border-radius: 20px; }
+        .symptom-btn.active { background: var(--primary); color: white; }
+        .risk-green { background: var(--success); color: white; }
+        .risk-yellow { background: var(--warning); color: black; }
+        .risk-red { background: var(--danger); color: white; }
+        .result-card { display: none; }
+        .lang-btn { cursor: pointer; padding: 8px 16px; border-radius: 8px; margin: 2px; }
+        .lang-btn.active { background: var(--primary); color: white; }
+        #loading { display: none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark">
+        <div class="container">
+            <span class="navbar-brand"><i class="fas fa-heartbeat"></i> AI-Sanjivani</span>
+            <div class="d-flex">
+                <span class="lang-btn active" onclick="setLanguage('english')">EN</span>
+                <span class="lang-btn" onclick="setLanguage('hindi')">हिंदी</span>
+                <span class="lang-btn" onclick="setLanguage('marathi')">मराठी</span>
+                <span class="lang-btn" onclick="setLanguage('tamil')">தமிழ்</span>
+            </div>
+        </div>
+    </nav>
+    <div class="hero">
+        <h1><i class="fas fa-hospital"></i> <span id="title">AI-Sanjivani</span></h1>
+        <p class="lead" id="subtitle">Offline AI Healthcare Assistant for Rural India</p>
+    </div>
+    <div class="container pb-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card p-4 mb-4">
+                    <h4 id="inputLabel"><i class="fas fa-edit"></i> Describe Your Symptoms</h4>
+                    <textarea id="symptomText" class="form-control mb-3" rows="3" placeholder="Type symptoms in any language..."></textarea>
+                    <button class="btn btn-outline-primary mb-3" onclick="extractSymptoms()" id="extractBtn">
+                        <i class="fas fa-search"></i> Extract Symptoms
+                    </button>
+                    <h5 id="selectLabel">Or Select Symptoms:</h5>
+                    <div id="symptomButtons" class="mb-3"></div>
+                </div>
+
+                <div class="card p-4 mb-4">
+                    <h4 id="infoLabel"><i class="fas fa-user"></i> Basic Information</h4>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label" id="ageLabel">Age</label>
+                            <input type="number" id="age" class="form-control" value="30" min="1" max="120">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label" id="genderLabel">Gender</label>
+                            <select id="gender" class="form-select">
+                                <option value="M">Male / पुरुष / ஆண்</option>
+                                <option value="F">Female / महिला / பெண்</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary btn-lg w-100" onclick="assessHealth()" id="assessBtn">
+                        <i class="fas fa-stethoscope"></i> <span id="assessText">Assess Health Risk</span>
+                    </button>
+                    <div id="loading" class="text-center mt-3">
+                        <div class="spinner-border text-primary"></div>
+                        <p id="loadingText">Analyzing symptoms...</p>
+                    </div>
+                </div>
+                <div class="card p-4 result-card" id="resultCard">
+                    <h4 id="resultLabel"><i class="fas fa-clipboard-check"></i> Assessment Result</h4>
+                    <div class="text-center my-4">
+                        <div id="riskBadge" class="badge fs-3 p-3 mb-3">Risk Level</div>
+                        <p id="confidence" class="fs-5"></p>
+                    </div>
+                    <div class="alert alert-info" id="explanation"></div>
+                    <h5 id="recLabel"><i class="fas fa-list-check"></i> Recommendations:</h5>
+                    <ul id="recommendations" class="list-group"></ul>
+                    <div class="alert alert-danger mt-3" id="emergencyAlert" style="display:none;">
+                        <h5><i class="fas fa-exclamation-triangle"></i> <span id="emergencyTitle">EMERGENCY</span></h5>
+                        <p id="emergencyText">Seek immediate medical attention!</p>
+                        <div class="d-flex gap-2">
+                            <a href="tel:108" class="btn btn-danger"><i class="fas fa-phone"></i> 108</a>
+                            <a href="tel:104" class="btn btn-warning"><i class="fas fa-phone"></i> 104</a>
+                            <a href="tel:102" class="btn btn-info"><i class="fas fa-ambulance"></i> 102</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <footer class="bg-dark text-white text-center py-3">
+        <p class="mb-0">🏥 AI-Sanjivani | Designed for Rural Healthcare in India</p>
+    </footer>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let selectedSymptoms = [];
+        let currentLang = 'english';
+        const symptoms = ['fever','cough','headache','body_ache','nausea','diarrhea','vomiting','weakness','breathing_difficulty','chest_pain'];
+        const symptomLabels = {
+            english: {fever:'Fever',cough:'Cough',headache:'Headache',body_ache:'Body Ache',nausea:'Nausea',diarrhea:'Diarrhea',vomiting:'Vomiting',weakness:'Weakness',breathing_difficulty:'Breathing Difficulty',chest_pain:'Chest Pain'},
+            hindi: {fever:'बुखार',cough:'खांसी',headache:'सिरदर्द',body_ache:'शरीर दर्द',nausea:'मतली',diarrhea:'दस्त',vomiting:'उल्टी',weakness:'कमजोरी',breathing_difficulty:'सांस की तकलीफ',chest_pain:'छाती में दर्द'},
+            marathi: {fever:'ताप',cough:'खोकला',headache:'डोकेदुखी',body_ache:'अंग दुखी',nausea:'मळमळाट',diarrhea:'जुलाब',vomiting:'उलटी',weakness:'अशक्तपणा',breathing_difficulty:'श्वास त्रास',chest_pain:'छातीत दुखी'},
+            tamil: {fever:'காய்ச்சல்',cough:'இருமல்',headache:'தலைவலி',body_ache:'உடல் வலி',nausea:'குமட்டல்',diarrhea:'வயிற்றுப்போக்கு',vomiting:'வாந்தி',weakness:'பலவீனம்',breathing_difficulty:'மூச்சு திணறல்',chest_pain:'மார்பு வலி'}
+        };
+        function renderSymptoms() {
+            const container = document.getElementById('symptomButtons');
+            container.innerHTML = symptoms.map(s => 
+                `<button class="btn btn-outline-secondary symptom-btn ${selectedSymptoms.includes(s)?'active':''}" onclick="toggleSymptom('${s}')">${symptomLabels[currentLang][s]}</button>`
+            ).join('');
+        }
+        function toggleSymptom(s) {
+            if(selectedSymptoms.includes(s)) selectedSymptoms = selectedSymptoms.filter(x=>x!==s);
+            else selectedSymptoms.push(s);
+            renderSymptoms();
+        }
+        function setLanguage(lang) {
+            currentLang = lang;
+            document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            renderSymptoms();
+        }
+        async function extractSymptoms() {
+            const text = document.getElementById('symptomText').value;
+            if(!text) return alert('Please enter symptoms');
+            try {
+                const res = await fetch('/api/extract-symptoms', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+                const data = await res.json();
+                if(data.symptoms) { selectedSymptoms = data.symptoms; renderSymptoms(); }
+            } catch(e) { console.error(e); }
+        }
+        async function assessHealth() {
+            if(selectedSymptoms.length === 0) return alert('Please select at least one symptom');
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('resultCard').style.display = 'none';
+            try {
+                const res = await fetch('/api/assess', {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({symptoms:selectedSymptoms,age:document.getElementById('age').value,gender:document.getElementById('gender').value,language:currentLang})
+                });
+                const data = await res.json();
+                document.getElementById('loading').style.display = 'none';
+                if(data.success) showResult(data);
+            } catch(e) { document.getElementById('loading').style.display = 'none'; alert('Error: '+e); }
+        }
+        function showResult(data) {
+            const badge = document.getElementById('riskBadge');
+            badge.textContent = data.risk_level;
+            badge.className = 'badge fs-3 p-3 mb-3 risk-' + data.risk_level.toLowerCase();
+            document.getElementById('confidence').textContent = `Confidence: ${(data.confidence*100).toFixed(1)}%`;
+            document.getElementById('explanation').textContent = data.explanation;
+            const recList = document.getElementById('recommendations');
+            recList.innerHTML = data.recommendations.map(r => `<li class="list-group-item">${r}</li>`).join('');
+            document.getElementById('emergencyAlert').style.display = data.risk_level === 'Red' ? 'block' : 'none';
+            document.getElementById('resultCard').style.display = 'block';
+        }
+        renderSymptoms();
+    </script>
+</body>
+</html>

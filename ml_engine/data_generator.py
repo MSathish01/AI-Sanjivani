@@ -1,338 +1,402 @@
 """
-Healthcare Data Scientist Module
-Synthetic Dataset Generation for Rural Health Risk Prediction
-Designed for Indian rural healthcare scenarios
+AI-Sanjivani Training Data Generator
+Generates realistic health assessment data for model training
+Includes demographic and geographic diversity for rural India
 """
 
-import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
+import pandas as pd
 import json
-from typing import Dict, List, Tuple
+from typing import List, Dict, Tuple, Any
+from datetime import datetime, timedelta
 import random
 
-class RuralHealthDataGenerator:
+class HealthDataGenerator:
     """
-    Generate synthetic healthcare data for rural India
-    Includes realistic disease patterns and demographic distributions
+    Generates comprehensive health assessment training data
+    Simulates real-world symptom patterns and risk distributions
     """
     
-    def __init__(self, seed: int = 42):
-        np.random.seed(seed)
-        random.seed(seed)
-        
-        # Disease patterns common in rural India
-        self.disease_categories = {
-            'respiratory': ['fever', 'cough', 'breathlessness', 'chest_pain'],
-            'gastrointestinal': ['nausea', 'vomiting', 'diarrhea', 'abdominal_pain'],
-            'cardiovascular': ['chest_pain', 'breathlessness', 'fatigue', 'dizziness'],
-            'infectious': ['fever', 'fatigue', 'body_ache', 'headache'],
-            'maternal': ['nausea', 'fatigue', 'dizziness', 'abdominal_pain'],
-            'diabetes_related': ['fatigue', 'frequent_urination', 'excessive_thirst', 'blurred_vision'],
-            'hypertension': ['headache', 'dizziness', 'chest_pain', 'fatigue'],
-            'malaria': ['fever', 'chills', 'headache', 'nausea'],
-            'dengue': ['fever', 'body_ache', 'headache', 'rash'],
-            'tuberculosis': ['cough', 'fever', 'weight_loss', 'night_sweats']
+    def __init__(self):
+        # Symptom categories and their relationships
+        self.symptom_categories = {
+            'respiratory': ['fever', 'cough', 'breathing_difficulty', 'chest_pain'],
+            'gastrointestinal': ['nausea', 'vomiting', 'diarrhea'],
+            'neurological': ['headache', 'weakness'],
+            'musculoskeletal': ['body_ache'],
+            'general': ['fever', 'weakness']
         }
         
-        # Risk level mapping based on disease severity
-        self.risk_mapping = {
-            'respiratory': {'mild': 'Green', 'moderate': 'Yellow', 'severe': 'Red'},
-            'gastrointestinal': {'mild': 'Green', 'moderate': 'Yellow', 'severe': 'Yellow'},
-            'cardiovascular': {'mild': 'Yellow', 'moderate': 'Red', 'severe': 'Red'},
-            'infectious': {'mild': 'Green', 'moderate': 'Yellow', 'severe': 'Red'},
-            'maternal': {'mild': 'Yellow', 'moderate': 'Yellow', 'severe': 'Red'},
-            'diabetes_related': {'mild': 'Yellow', 'moderate': 'Yellow', 'severe': 'Red'},
-            'hypertension': {'mild': 'Yellow', 'moderate': 'Red', 'severe': 'Red'},
-            'malaria': {'mild': 'Yellow', 'moderate': 'Red', 'severe': 'Red'},
-            'dengue': {'mild': 'Yellow', 'moderate': 'Red', 'severe': 'Red'},
-            'tuberculosis': {'mild': 'Yellow', 'moderate': 'Red', 'severe': 'Red'}
-        }
-    
-    def generate_patient_demographics(self, n_patients: int) -> pd.DataFrame:
-        """Generate realistic demographic data for rural Indian population"""
-        
-        demographics = []
-        
-        for i in range(n_patients):
-            # Age distribution reflecting rural India demographics
-            age_group = np.random.choice(['child', 'adult', 'elderly'], p=[0.3, 0.6, 0.1])
-            
-            if age_group == 'child':
-                age = np.random.randint(1, 18)
-            elif age_group == 'adult':
-                age = np.random.randint(18, 60)
-            else:
-                age = np.random.randint(60, 85)
-            
-            # Gender distribution
-            gender = np.random.choice(['M', 'F'], p=[0.52, 0.48])
-            
-            # Pregnancy flag (only for women of reproductive age)
-            is_pregnant = False
-            if gender == 'F' and 15 <= age <= 45:
-                is_pregnant = np.random.choice([True, False], p=[0.05, 0.95])
-            
-            # Diabetes history (higher in adults)
-            has_diabetes = False
-            if age >= 30:
-                diabetes_prob = min(0.15 + (age - 30) * 0.01, 0.25)
-                has_diabetes = np.random.choice([True, False], p=[diabetes_prob, 1-diabetes_prob])
-            
-            # Hypertension history
-            has_hypertension = False
-            if age >= 25:
-                hyp_prob = min(0.10 + (age - 25) * 0.008, 0.20)
-                has_hypertension = np.random.choice([True, False], p=[hyp_prob, 1-hyp_prob])
-            
-            demographics.append({
-                'patient_id': f'P_{i:06d}',
-                'age': age,
-                'gender': gender,
-                'is_pregnant': is_pregnant,
-                'has_diabetes': has_diabetes,
-                'has_hypertension': has_hypertension,
-                'age_group': age_group
-            })
-        
-        return pd.DataFrame(demographics)
-    
-    def generate_symptoms_and_vitals(self, demographics: pd.DataFrame) -> pd.DataFrame:
-        """Generate symptoms and vital signs based on demographics and disease patterns"""
-        
-        data = []
-        
-        for _, patient in demographics.iterrows():
-            # Select disease category based on demographics
-            disease_category = self._select_disease_category(patient)
-            
-            # Generate symptoms based on disease
-            symptoms = self._generate_symptoms(disease_category, patient)
-            
-            # Generate vital signs
-            vitals = self._generate_vitals(disease_category, symptoms, patient)
-            
-            # Determine severity and risk level
-            severity = self._determine_severity(symptoms, vitals, patient)
-            risk_level = self.risk_mapping[disease_category][severity]
-            
-            # Combine all data
-            patient_data = {
-                **patient.to_dict(),
-                **symptoms,
-                **vitals,
-                'disease_category': disease_category,
-                'severity': severity,
-                'risk_level': risk_level
+        # Disease patterns (symptom combinations with typical risk levels)
+        self.disease_patterns = {
+            'common_cold': {
+                'symptoms': ['fever', 'cough', 'headache'],
+                'risk_level': 'Yellow',
+                'probability': 0.25
+            },
+            'flu': {
+                'symptoms': ['fever', 'cough', 'headache', 'body_ache', 'weakness'],
+                'risk_level': 'Yellow',
+                'probability': 0.15
+            },
+            'gastroenteritis': {
+                'symptoms': ['nausea', 'vomiting', 'diarrhea', 'weakness'],
+                'risk_level': 'Yellow',
+                'probability': 0.12
+            },
+            'pneumonia': {
+                'symptoms': ['fever', 'cough', 'breathing_difficulty', 'chest_pain', 'weakness'],
+                'risk_level': 'Red',
+                'probability': 0.08
+            },
+            'severe_dehydration': {
+                'symptoms': ['vomiting', 'diarrhea', 'weakness', 'headache'],
+                'risk_level': 'Red',
+                'probability': 0.06
+            },
+            'cardiac_event': {
+                'symptoms': ['chest_pain', 'breathing_difficulty', 'weakness'],
+                'risk_level': 'Red',
+                'probability': 0.04
+            },
+            'mild_headache': {
+                'symptoms': ['headache'],
+                'risk_level': 'Green',
+                'probability': 0.15
+            },
+            'minor_ache': {
+                'symptoms': ['body_ache'],
+                'risk_level': 'Green',
+                'probability': 0.10
+            },
+            'mild_fever': {
+                'symptoms': ['fever'],
+                'risk_level': 'Green',
+                'probability': 0.05
             }
-            
-            data.append(patient_data)
+        }
         
-        return pd.DataFrame(data)
+        # Demographic distributions for rural India
+        self.demographics = {
+            'age_distribution': {
+                'young_adult': (18, 35, 0.35),
+                'middle_aged': (36, 55, 0.40),
+                'elderly': (56, 80, 0.25)
+            },
+            'gender_distribution': {
+                'male': 0.52,
+                'female': 0.48
+            }
+        }
+        
+        # Regional and seasonal factors
+        self.regional_factors = {
+            'monsoon_diseases': ['diarrhea', 'fever', 'vomiting'],
+            'summer_diseases': ['fever', 'weakness', 'headache'],
+            'winter_diseases': ['cough', 'fever', 'body_ache']
+        }
     
-    def _select_disease_category(self, patient: pd.Series) -> str:
-        """Select disease category based on patient demographics"""
+    def generate_patient_demographics(self) -> Dict[str, Any]:
+        """Generate realistic patient demographics"""
         
-        age = patient['age']
-        gender = patient['gender']
-        is_pregnant = patient['is_pregnant']
-        has_diabetes = patient['has_diabetes']
+        # Age based on distribution
+        age_group = np.random.choice(
+            list(self.demographics['age_distribution'].keys()),
+            p=[dist[2] for dist in self.demographics['age_distribution'].values()]
+        )
         
-        # Probability weights based on demographics
-        if is_pregnant:
-            weights = [0.1, 0.2, 0.1, 0.2, 0.3, 0.05, 0.05, 0.0, 0.0, 0.0]
-        elif age < 5:
-            weights = [0.3, 0.2, 0.05, 0.25, 0.0, 0.0, 0.0, 0.1, 0.05, 0.05]
-        elif age >= 60:
-            weights = [0.2, 0.15, 0.25, 0.15, 0.0, 0.1, 0.15, 0.0, 0.0, 0.0]
-        elif has_diabetes:
-            weights = [0.15, 0.15, 0.2, 0.15, 0.0, 0.2, 0.1, 0.025, 0.025, 0.0]
-        else:
-            weights = [0.2, 0.15, 0.1, 0.2, 0.0, 0.05, 0.05, 0.1, 0.1, 0.05]
+        age_range = self.demographics['age_distribution'][age_group]
+        age = np.random.randint(age_range[0], age_range[1] + 1)
         
-        categories = list(self.disease_categories.keys())
-        return np.random.choice(categories, p=weights)
-    
-    def _generate_symptoms(self, disease_category: str, patient: pd.Series) -> Dict[str, int]:
-        """Generate symptoms based on disease category"""
-        
-        # All possible symptoms
-        all_symptoms = [
-            'fever', 'cough', 'breathlessness', 'chest_pain', 'fatigue',
-            'nausea', 'vomiting', 'diarrhea', 'abdominal_pain', 'headache',
-            'body_ache', 'dizziness', 'chills', 'rash', 'weight_loss',
-            'night_sweats', 'frequent_urination', 'excessive_thirst', 'blurred_vision'
-        ]
-        
-        # Initialize all symptoms as 0
-        symptoms = {symptom: 0 for symptom in all_symptoms}
-        
-        # Get primary symptoms for this disease
-        primary_symptoms = self.disease_categories[disease_category]
-        
-        # Add primary symptoms with high probability
-        for symptom in primary_symptoms:
-            if symptom in symptoms:
-                symptoms[symptom] = np.random.choice([0, 1], p=[0.2, 0.8])
-        
-        # Add some random secondary symptoms
-        secondary_symptoms = [s for s in all_symptoms if s not in primary_symptoms]
-        n_secondary = np.random.randint(0, 3)
-        
-        for symptom in np.random.choice(secondary_symptoms, min(n_secondary, len(secondary_symptoms)), replace=False):
-            symptoms[symptom] = np.random.choice([0, 1], p=[0.8, 0.2])
-        
-        return symptoms
-    
-    def _generate_vitals(self, disease_category: str, symptoms: Dict[str, int], patient: pd.Series) -> Dict[str, float]:
-        """Generate vital signs based on symptoms and patient condition"""
-        
-        age = patient['age']
-        
-        # Normal ranges
-        normal_hr = 70 + np.random.normal(0, 10)  # Heart rate
-        normal_spo2 = 98 + np.random.normal(0, 1.5)  # SpO2
-        normal_temp = 98.6 + np.random.normal(0, 0.5)  # Temperature (F)
-        normal_bp_sys = 120 + np.random.normal(0, 10)  # Systolic BP
-        normal_bp_dia = 80 + np.random.normal(0, 8)  # Diastolic BP
-        
-        # Adjust based on age
-        if age >= 60:
-            normal_hr += 5
-            normal_bp_sys += 20
-            normal_bp_dia += 10
-        elif age < 18:
-            normal_hr += 20
-            normal_bp_sys -= 20
-            normal_bp_dia -= 15
-        
-        # Adjust based on symptoms
-        if symptoms['fever']:
-            normal_temp += np.random.uniform(2, 5)  # Fever
-            normal_hr += np.random.uniform(10, 25)  # Tachycardia with fever
-        
-        if symptoms['breathlessness'] or symptoms['chest_pain']:
-            normal_spo2 -= np.random.uniform(2, 8)  # Reduced oxygen saturation
-            normal_hr += np.random.uniform(15, 30)  # Tachycardia
-        
-        if disease_category == 'cardiovascular':
-            normal_bp_sys += np.random.uniform(20, 40)
-            normal_bp_dia += np.random.uniform(10, 20)
-        
-        # Ensure realistic ranges
-        heart_rate = max(50, min(180, normal_hr))
-        spo2 = max(70, min(100, normal_spo2))
-        temperature = max(95, min(108, normal_temp))
-        bp_systolic = max(80, min(200, normal_bp_sys))
-        bp_diastolic = max(50, min(120, normal_bp_dia))
+        # Gender
+        gender = np.random.choice(
+            ['M', 'F'],
+            p=[self.demographics['gender_distribution']['male'],
+               self.demographics['gender_distribution']['female']]
+        )
         
         return {
-            'heart_rate': round(heart_rate, 1),
-            'spo2': round(spo2, 1),
-            'temperature_f': round(temperature, 1),
-            'bp_systolic': round(bp_systolic, 1),
-            'bp_diastolic': round(bp_diastolic, 1)
+            'age': age,
+            'gender': gender,
+            'age_group': age_group
         }
     
-    def _determine_severity(self, symptoms: Dict[str, int], vitals: Dict[str, float], patient: pd.Series) -> str:
-        """Determine severity based on symptoms and vitals"""
+    def generate_symptom_combination(self) -> Tuple[List[str], str]:
+        """Generate realistic symptom combination with risk level"""
         
-        # Count active symptoms
-        symptom_count = sum(symptoms.values())
+        # Choose disease pattern or random combination
+        if np.random.random() < 0.7:  # 70% follow known patterns
+            pattern_name = np.random.choice(
+                list(self.disease_patterns.keys()),
+                p=[pattern['probability'] for pattern in self.disease_patterns.values()]
+            )
+            
+            pattern = self.disease_patterns[pattern_name]
+            base_symptoms = pattern['symptoms'].copy()
+            base_risk = pattern['risk_level']
+            
+            # Add some variation
+            if np.random.random() < 0.3:  # 30% chance to modify
+                # Remove a symptom
+                if len(base_symptoms) > 1 and np.random.random() < 0.5:
+                    base_symptoms.pop(np.random.randint(len(base_symptoms)))
+                
+                # Add a related symptom
+                if np.random.random() < 0.4:
+                    all_symptoms = [s for symptoms in self.symptom_categories.values() 
+                                  for s in symptoms]
+                    additional = np.random.choice(all_symptoms)
+                    if additional not in base_symptoms:
+                        base_symptoms.append(additional)
+            
+            return base_symptoms, base_risk
         
-        # Check for severe vital signs
-        severe_vitals = (
-            vitals['spo2'] < 90 or
-            vitals['temperature_f'] > 103 or
-            vitals['heart_rate'] > 120 or
-            vitals['bp_systolic'] > 180
-        )
-        
-        # Check for high-risk symptoms
-        high_risk_symptoms = (
-            symptoms.get('breathlessness', 0) or
-            symptoms.get('chest_pain', 0) or
-            symptoms.get('severe_abdominal_pain', 0)
-        )
-        
-        # Age-based risk
-        age_risk = patient['age'] >= 65 or patient['age'] < 2
-        
-        # Comorbidity risk
-        comorbidity_risk = patient['has_diabetes'] or patient['has_hypertension']
-        
-        # Determine severity
-        if severe_vitals or (high_risk_symptoms and (age_risk or comorbidity_risk)):
-            return 'severe'
-        elif symptom_count >= 3 or high_risk_symptoms or (symptom_count >= 2 and comorbidity_risk):
-            return 'moderate'
-        else:
-            return 'mild'
+        else:  # 30% random combinations
+            num_symptoms = np.random.choice([1, 2, 3, 4, 5], p=[0.3, 0.3, 0.2, 0.15, 0.05])
+            
+            all_symptoms = list(set([s for symptoms in self.symptom_categories.values() 
+                                   for s in symptoms]))
+            symptoms = np.random.choice(all_symptoms, num_symptoms, replace=False).tolist()
+            
+            # Determine risk based on symptom count and severity
+            severe_symptoms = ['chest_pain', 'breathing_difficulty', 'vomiting']
+            has_severe = any(s in symptoms for s in severe_symptoms)
+            
+            if has_severe or num_symptoms >= 4:
+                risk = 'Red'
+            elif num_symptoms >= 2:
+                risk = 'Yellow'
+            else:
+                risk = 'Green'
+            
+            return symptoms, risk
     
-    def generate_dataset(self, n_patients: int = 5000) -> pd.DataFrame:
-        """Generate complete synthetic dataset"""
+    def add_demographic_risk_factors(self, symptoms: List[str], risk_level: str, 
+                                   demographics: Dict[str, Any]) -> str:
+        """Adjust risk level based on demographic factors"""
         
-        print(f"Generating synthetic healthcare dataset for {n_patients} patients...")
+        age = demographics['age']
+        
+        # Elderly patients have higher risk
+        if age >= 60:
+            if risk_level == 'Green' and len(symptoms) >= 2:
+                risk_level = 'Yellow'
+            elif risk_level == 'Yellow' and any(s in symptoms for s in 
+                                              ['fever', 'breathing_difficulty', 'chest_pain']):
+                risk_level = 'Red'
+        
+        # Very young adults with severe symptoms
+        elif age <= 25:
+            if risk_level == 'Red' and len(symptoms) <= 2:
+                risk_level = 'Yellow'  # Slightly lower risk for young adults
+        
+        return risk_level
+    
+    def create_feature_vector(self, symptoms: List[str], demographics: Dict[str, Any]) -> Dict[str, Any]:
+        """Create feature vector for machine learning"""
+        
+        # All possible symptoms
+        all_symptoms = list(set([s for symptoms in self.symptom_categories.values() 
+                               for s in symptoms]))
+        
+        # Binary encoding for symptoms
+        feature_vector = {}
+        for symptom in all_symptoms:
+            feature_vector[symptom] = 1 if symptom in symptoms else 0
+        
+        # Add demographic features
+        feature_vector['age'] = demographics['age']
+        feature_vector['gender'] = 1 if demographics['gender'] == 'M' else 0
+        
+        # Add derived features
+        feature_vector['symptom_count'] = len(symptoms)
+        feature_vector['has_fever'] = 1 if 'fever' in symptoms else 0
+        feature_vector['has_respiratory'] = 1 if any(s in symptoms for s in 
+                                                   self.symptom_categories['respiratory']) else 0
+        feature_vector['has_gi'] = 1 if any(s in symptoms for s in 
+                                          self.symptom_categories['gastrointestinal']) else 0
+        
+        return feature_vector
+    
+    def generate_single_record(self, patient_id: str = None) -> Dict[str, Any]:
+        """Generate a single health assessment record"""
+        
+        if patient_id is None:
+            patient_id = f"patient_{np.random.randint(10000, 99999)}"
         
         # Generate demographics
-        demographics = self.generate_patient_demographics(n_patients)
+        demographics = self.generate_patient_demographics()
         
-        # Generate symptoms and vitals
-        complete_data = self.generate_symptoms_and_vitals(demographics)
+        # Generate symptoms and base risk
+        symptoms, base_risk = self.generate_symptom_combination()
         
-        print(f"Dataset generated successfully!")
-        print(f"Shape: {complete_data.shape}")
-        print(f"Risk level distribution:")
-        print(complete_data['risk_level'].value_counts())
+        # Adjust risk based on demographics
+        final_risk = self.add_demographic_risk_factors(symptoms, base_risk, demographics)
         
-        return complete_data
+        # Create feature vector
+        features = self.create_feature_vector(symptoms, demographics)
+        
+        # Add metadata
+        record = features.copy()
+        record.update({
+            'patient_id': patient_id,
+            'risk_level': final_risk,
+            'symptoms_list': symptoms,
+            'age_group': demographics['age_group']
+        })
+        
+        return record
     
-    def save_dataset(self, data: pd.DataFrame, filepath: str = 'rural_health_dataset.csv'):
-        """Save dataset to CSV"""
-        data.to_csv(filepath, index=False)
-        print(f"Dataset saved to {filepath}")
+    def generate_comprehensive_dataset(self, n_samples: int = 5000) -> pd.DataFrame:
+        """Generate comprehensive training dataset"""
         
-        # Save schema information
-        schema = {
-            'features': {
-                'demographics': ['age', 'gender', 'is_pregnant', 'has_diabetes', 'has_hypertension'],
-                'symptoms': ['fever', 'cough', 'breathlessness', 'chest_pain', 'fatigue', 'nausea', 
-                           'vomiting', 'diarrhea', 'abdominal_pain', 'headache', 'body_ache', 
-                           'dizziness', 'chills', 'rash', 'weight_loss', 'night_sweats', 
-                           'frequent_urination', 'excessive_thirst', 'blurred_vision'],
-                'vitals': ['heart_rate', 'spo2', 'temperature_f', 'bp_systolic', 'bp_diastolic']
+        print(f"Generating {n_samples} health assessment records...")
+        
+        records = []
+        
+        # Ensure balanced risk distribution
+        target_distribution = {'Green': 0.4, 'Yellow': 0.45, 'Red': 0.15}
+        risk_counts = {risk: 0 for risk in target_distribution.keys()}
+        
+        for i in range(n_samples):
+            record = self.generate_single_record(f"patient_{i:06d}")
+            
+            # Check if we need to balance the dataset
+            current_risk = record['risk_level']
+            current_proportion = risk_counts[current_risk] / max(i, 1)
+            target_proportion = target_distribution[current_risk]
+            
+            # If we're over-representing this risk level, try to generate a different one
+            if current_proportion > target_proportion * 1.2 and i > 100:
+                # Try up to 3 times to get a different risk level
+                for _ in range(3):
+                    new_record = self.generate_single_record(f"patient_{i:06d}")
+                    if new_record['risk_level'] != current_risk:
+                        record = new_record
+                        break
+            
+            risk_counts[record['risk_level']] += 1
+            records.append(record)
+            
+            if (i + 1) % 1000 == 0:
+                print(f"Generated {i + 1} records...")
+        
+        # Convert to DataFrame
+        df = pd.DataFrame(records)
+        
+        # Print dataset statistics
+        print(f"\nDataset Statistics:")
+        print(f"Total records: {len(df)}")
+        print(f"Risk level distribution:")
+        for risk, count in df['risk_level'].value_counts().items():
+            print(f"  {risk}: {count} ({count/len(df)*100:.1f}%)")
+        
+        print(f"Age distribution:")
+        for age_group, count in df['age_group'].value_counts().items():
+            print(f"  {age_group}: {count} ({count/len(df)*100:.1f}%)")
+        
+        print(f"Gender distribution:")
+        gender_counts = df['gender'].value_counts()
+        print(f"  Male: {gender_counts.get(1, 0)} ({gender_counts.get(1, 0)/len(df)*100:.1f}%)")
+        print(f"  Female: {gender_counts.get(0, 0)} ({gender_counts.get(0, 0)/len(df)*100:.1f}%)")
+        
+        # Remove helper columns
+        df = df.drop(['symptoms_list', 'age_group'], axis=1)
+        
+        return df
+    
+    def save_dataset(self, df: pd.DataFrame, filename: str = "training_data.csv"):
+        """Save dataset to CSV file"""
+        df.to_csv(filename, index=False)
+        print(f"Dataset saved to {filename}")
+    
+    def generate_test_cases(self) -> List[Dict[str, Any]]:
+        """Generate specific test cases for model validation"""
+        
+        test_cases = [
+            # Green risk cases
+            {
+                'symptoms': ['headache'],
+                'age': 25,
+                'gender': 'F',
+                'expected_risk': 'Green',
+                'description': 'Young adult with mild headache'
             },
-            'targets': {
-                'disease_category': list(self.disease_categories.keys()),
-                'risk_level': ['Green', 'Yellow', 'Red']
+            {
+                'symptoms': ['body_ache'],
+                'age': 30,
+                'gender': 'M',
+                'expected_risk': 'Green',
+                'description': 'Adult with minor body ache'
             },
-            'data_types': {
-                'categorical': ['gender', 'disease_category', 'risk_level', 'severity'],
-                'binary': ['is_pregnant', 'has_diabetes', 'has_hypertension'] + 
-                         ['fever', 'cough', 'breathlessness', 'chest_pain', 'fatigue', 'nausea', 
-                          'vomiting', 'diarrhea', 'abdominal_pain', 'headache', 'body_ache', 
-                          'dizziness', 'chills', 'rash', 'weight_loss', 'night_sweats', 
-                          'frequent_urination', 'excessive_thirst', 'blurred_vision'],
-                'numerical': ['age', 'heart_rate', 'spo2', 'temperature_f', 'bp_systolic', 'bp_diastolic']
+            
+            # Yellow risk cases
+            {
+                'symptoms': ['fever', 'cough'],
+                'age': 35,
+                'gender': 'F',
+                'expected_risk': 'Yellow',
+                'description': 'Adult with common cold symptoms'
+            },
+            {
+                'symptoms': ['nausea', 'vomiting'],
+                'age': 40,
+                'gender': 'M',
+                'expected_risk': 'Yellow',
+                'description': 'Adult with gastric symptoms'
+            },
+            {
+                'symptoms': ['fever', 'headache', 'body_ache'],
+                'age': 65,
+                'gender': 'F',
+                'expected_risk': 'Yellow',
+                'description': 'Elderly with flu-like symptoms'
+            },
+            
+            # Red risk cases
+            {
+                'symptoms': ['chest_pain', 'breathing_difficulty'],
+                'age': 55,
+                'gender': 'M',
+                'expected_risk': 'Red',
+                'description': 'Middle-aged with cardiac symptoms'
+            },
+            {
+                'symptoms': ['fever', 'vomiting', 'diarrhea', 'weakness'],
+                'age': 70,
+                'gender': 'F',
+                'expected_risk': 'Red',
+                'description': 'Elderly with severe dehydration symptoms'
+            },
+            {
+                'symptoms': ['breathing_difficulty', 'fever', 'cough', 'chest_pain'],
+                'age': 45,
+                'gender': 'M',
+                'expected_risk': 'Red',
+                'description': 'Adult with pneumonia symptoms'
             }
-        }
+        ]
         
-        schema_file = filepath.replace('.csv', '_schema.json')
-        with open(schema_file, 'w') as f:
-            json.dump(schema, f, indent=2)
-        print(f"Schema saved to {schema_file}")
+        return test_cases
 
-if __name__ == "__main__":
-    # Generate synthetic dataset
-    generator = RuralHealthDataGenerator()
-    dataset = generator.generate_dataset(n_patients=5000)
+def main():
+    """Demo data generation"""
+    generator = HealthDataGenerator()
+    
+    # Generate sample dataset
+    dataset = generator.generate_comprehensive_dataset(1000)
     
     # Save dataset
-    generator.save_dataset(dataset, 'data/rural_health_dataset.csv')
+    generator.save_dataset(dataset, "sample_training_data.csv")
     
-    # Display sample data
-    print("\nSample data:")
-    print(dataset.head())
+    # Generate test cases
+    test_cases = generator.generate_test_cases()
     
-    print("\nDataset statistics:")
-    print(dataset.describe())
+    print(f"\nGenerated {len(test_cases)} test cases:")
+    for i, case in enumerate(test_cases, 1):
+        print(f"{i}. {case['description']}")
+        print(f"   Symptoms: {case['symptoms']}")
+        print(f"   Expected Risk: {case['expected_risk']}")
+
+if __name__ == "__main__":
+    main()

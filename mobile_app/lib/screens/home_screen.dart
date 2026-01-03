@@ -1,49 +1,107 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/app_state_provider.dart';
-import '../widgets/language_selector.dart';
-import '../widgets/large_action_button.dart';
-import '../widgets/info_card.dart';
-import '../utils/app_localizations.dart';
-import '../utils/colors.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
-class HomeScreen extends StatelessWidget {
+import '../providers/language_provider.dart';
+import '../providers/health_provider.dart';
+import '../utils/app_localizations.dart';
+import '../widgets/language_selector.dart';
+import '../widgets/offline_indicator.dart';
+
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  bool _isOffline = false;
+
+  @override
+  void initState() {
+    super.initState();
+    
+    // Initialize animations
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+    
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
+    
+    _animationController.forward();
+    
+    // Check connectivity
+    _checkConnectivity();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _checkConnectivity() async {
+    final connectivityResult = await Connectivity().checkConnectivity();
+    setState(() {
+      _isOffline = connectivityResult == ConnectivityResult.none;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
-    final appState = Provider.of<AppStateProvider>(context);
+    final languageProvider = Provider.of<LanguageProvider>(context);
     
     return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
+      appBar: AppBar(
+        title: Text(localizations.appTitle),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.language),
+            onPressed: () => _showLanguageSelector(context),
+          ),
+          IconButton(
+            icon: const Icon(Icons.history),
+            onPressed: () => Navigator.pushNamed(context, '/history'),
+          ),
+        ],
+      ),
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Header with logo and language selector
-              _buildHeader(context, localizations, appState),
+              // Offline indicator
+              if (_isOffline) const OfflineIndicator(),
               
-              const SizedBox(height: 30),
+              const SizedBox(height: 20),
               
-              // Welcome message
-              _buildWelcomeMessage(localizations),
+              // Welcome section
+              _buildWelcomeSection(localizations),
               
-              const SizedBox(height: 40),
+              const SizedBox(height: 32),
               
               // Main action buttons
-              Expanded(
-                child: _buildActionButtons(context, localizations),
-              ),
+              _buildActionButtons(context, localizations),
               
-              const SizedBox(height: 20),
+              const SizedBox(height: 32),
               
-              // Info cards
+              // Information cards
               _buildInfoCards(localizations),
               
-              const SizedBox(height: 20),
+              const SizedBox(height: 32),
               
               // Emergency contact
               _buildEmergencyContact(localizations),
@@ -54,98 +112,44 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context, AppLocalizations localizations, AppStateProvider appState) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        // Logo and app name
-        Row(
+  Widget _buildWelcomeSection(AppLocalizations localizations) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
           children: [
+            // AI-Sanjivani logo/icon
             Container(
-              width: 50,
-              height: 50,
+              width: 80,
+              height: 80,
               decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(12),
+                color: Theme.of(context).primaryColor,
+                shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.health_and_safety,
+                size: 40,
                 color: Colors.white,
-                size: 30,
               ),
             ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'AI-Sanjivani',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                Text(
-                  localizations.translate('app_subtitle'),
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
+            
+            const SizedBox(height: 16),
+            
+            Text(
+              localizations.welcomeTitle,
+              style: Theme.of(context).textTheme.headlineMedium,
+              textAlign: TextAlign.center,
+            ),
+            
+            const SizedBox(height: 8),
+            
+            Text(
+              localizations.welcomeSubtitle,
+              style: Theme.of(context).textTheme.bodyLarge,
+              textAlign: TextAlign.center,
             ),
           ],
         ),
-        
-        // Language selector
-        LanguageSelector(
-          currentLanguage: appState.currentLanguage,
-          onLanguageChanged: (language) {
-            appState.setLanguage(language);
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildWelcomeMessage(AppLocalizations localizations) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppColors.primary.withOpacity(0.1), AppColors.secondary.withOpacity(0.1)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
-      ),
-      child: Column(
-        children: [
-          Icon(
-            Icons.waving_hand,
-            size: 40,
-            color: AppColors.primary,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            localizations.translate('welcome_message'),
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            localizations.translate('welcome_subtitle'),
-            style: const TextStyle(
-              fontSize: 14,
-              color: AppColors.textSecondary,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
       ),
     );
   }
@@ -153,197 +157,225 @@ class HomeScreen extends StatelessWidget {
   Widget _buildActionButtons(BuildContext context, AppLocalizations localizations) {
     return Column(
       children: [
-        // Start Health Check button
-        LargeActionButton(
-          icon: Icons.medical_services,
-          title: localizations.translate('start_health_check'),
-          subtitle: localizations.translate('check_symptoms'),
-          color: AppColors.primary,
-          onTap: () {
-            Navigator.pushNamed(context, '/assessment');
-          },
+        // Start Health Assessment
+        SizedBox(
+          width: double.infinity,
+          height: 60,
+          child: ElevatedButton.icon(
+            onPressed: () => Navigator.pushNamed(context, '/assessment'),
+            icon: const Icon(Icons.medical_services, size: 24),
+            label: Text(localizations.startAssessment),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2E7D32),
+            ),
+          ),
         ),
         
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
         
-        // View History button
-        LargeActionButton(
-          icon: Icons.history,
-          title: localizations.translate('view_history'),
-          subtitle: localizations.translate('past_assessments'),
-          color: AppColors.secondary,
-          onTap: () {
-            Navigator.pushNamed(context, '/history');
-          },
-        ),
-        
-        const SizedBox(height: 20),
-        
-        // Emergency button
-        LargeActionButton(
-          icon: Icons.emergency,
-          title: localizations.translate('emergency'),
-          subtitle: localizations.translate('call_108'),
-          color: AppColors.error,
-          onTap: () {
-            _showEmergencyDialog(context, localizations);
-          },
+        // View History
+        SizedBox(
+          width: double.infinity,
+          height: 60,
+          child: OutlinedButton.icon(
+            onPressed: () => Navigator.pushNamed(context, '/history'),
+            icon: const Icon(Icons.history, size: 24),
+            label: Text(localizations.viewHistory),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: Theme.of(context).primaryColor, width: 2),
+              foregroundColor: Theme.of(context).primaryColor,
+            ),
+          ),
         ),
       ],
     );
   }
 
   Widget _buildInfoCards(AppLocalizations localizations) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: InfoCard(
-            icon: Icons.offline_bolt,
-            title: localizations.translate('works_offline'),
-            subtitle: localizations.translate('no_internet_needed'),
-            color: AppColors.success,
-          ),
+        Text(
+          localizations.howItWorks,
+          style: Theme.of(context).textTheme.headlineMedium,
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: InfoCard(
-            icon: Icons.language,
-            title: localizations.translate('multilingual'),
-            subtitle: localizations.translate('hindi_marathi_support'),
-            color: AppColors.info,
-          ),
+        
+        const SizedBox(height: 16),
+        
+        // Step cards
+        _buildStepCard(
+          1,
+          localizations.step1Title,
+          localizations.step1Description,
+          Icons.record_voice_over,
+          Colors.blue,
+        ),
+        
+        _buildStepCard(
+          2,
+          localizations.step2Title,
+          localizations.step2Description,
+          Icons.psychology,
+          Colors.orange,
+        ),
+        
+        _buildStepCard(
+          3,
+          localizations.step3Title,
+          localizations.step3Description,
+          Icons.health_and_safety,
+          Colors.green,
         ),
       ],
     );
   }
 
-  Widget _buildEmergencyContact(AppLocalizations localizations) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.error.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.error.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.phone_in_talk,
-            color: AppColors.error,
-            size: 24,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  localizations.translate('emergency_helpline'),
+  Widget _buildStepCard(
+    int stepNumber,
+    String title,
+    String description,
+    IconData icon,
+    Color color,
+  ) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            // Step number circle
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  stepNumber.toString(),
                   style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
                   ),
                 ),
-                Text(
-                  '108 - ${localizations.translate('ambulance_service')}',
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-          Icon(
-            Icons.arrow_forward_ios,
-            color: AppColors.error,
-            size: 16,
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showEmergencyDialog(BuildContext context, AppLocalizations localizations) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Row(
-            children: [
-              Icon(Icons.emergency, color: AppColors.error),
-              const SizedBox(width: 8),
-              Text(localizations.translate('emergency')),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(localizations.translate('emergency_message')),
-              const SizedBox(height: 16),
-              _buildEmergencyContact(
-                '108',
-                localizations.translate('ambulance_service'),
-                Icons.local_hospital,
+            
+            const SizedBox(width: 16),
+            
+            // Content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              _buildEmergencyContact(
-                '104',
-                localizations.translate('health_helpline'),
-                Icons.phone,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(localizations.translate('close')),
+            ),
+            
+            // Icon
+            Icon(
+              icon,
+              color: color,
+              size: 32,
             ),
           ],
-        );
-      },
+        ),
+      ),
     );
   }
 
-  Widget _buildEmergencyContact(String number, String service, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: AppColors.primary, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildEmergencyContact(AppLocalizations localizations) {
+    return Card(
+      color: Colors.red.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Row(
               children: [
-                Text(
-                  number,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+                Icon(
+                  Icons.emergency,
+                  color: Colors.red.shade700,
+                  size: 24,
                 ),
+                const SizedBox(width: 8),
                 Text(
-                  service,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
+                  localizations.emergencyContact,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red.shade700,
                   ),
                 ),
               ],
             ),
-          ),
-        ],
+            
+            const SizedBox(height: 12),
+            
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildEmergencyButton('108', localizations.emergency),
+                _buildEmergencyButton('104', localizations.healthHelpline),
+                _buildEmergencyButton('102', localizations.ambulance),
+              ],
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildEmergencyButton(String number, String label) {
+    return Column(
+      children: [
+        ElevatedButton(
+          onPressed: () {
+            // In a real app, this would make a phone call
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Calling $number...')),
+            );
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red.shade700,
+            shape: const CircleBorder(),
+            padding: const EdgeInsets.all(16),
+          ),
+          child: Text(
+            number,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall,
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  void _showLanguageSelector(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => const LanguageSelector(),
     );
   }
 }
